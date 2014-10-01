@@ -144,9 +144,9 @@ def main():
 
     args = parser.parse_args()
 
-#   process_many_treatments(args.root_dir, args.out_dir)
+    process_many_treatments(args.root_dir, args.out_dir)
 #   process_many_series(args.root_dir, args.out_dir)
-    process_pipeline(args.root_dir, args.out_dir)
+#   process_pipeline(args.root_dir, args.out_dir)
 
 if __name__ == "__main__":
     main()
