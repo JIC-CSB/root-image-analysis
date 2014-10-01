@@ -6,10 +6,11 @@ import argparse
 import tempfile
 import subprocess
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 from scipy.ndimage import measurements
 
+import cv2
 import logging
 
 logger = logging.getLogger('__main__.{}'.format(__name__))
@@ -39,7 +40,7 @@ def segment_image(input_file, fiji_exe, fiji_script):
     return numpy_im 
 
 def color_objects(numpy_im, min_num_pixels):
-    """Return a segmented PIL image with each object colored differently."""
+    """Return a segmented numpy image with each object colored differently."""
     numpy_im = 1*(numpy_im<128)  # make sure the image is binary
     labels, num_objects = measurements.label(numpy_im)
     logger.info('Number of objects: {}'.format(num_objects))
@@ -56,20 +57,33 @@ def color_objects(numpy_im, min_num_pixels):
             num_objects_passing_size_filter += 1
     logger.info('Number of objects after size filter: {}'.format(
                                 num_objects_passing_size_filter))
-            
-    pil_im = Image.fromarray(np.uint8(labels))
-    return pil_im
+    logger.info('Max value of an object after size filter: {}'.format(
+                                np.max(labels)))
+
+    return labels
+
+def save_image(im, output_file):
+    """Save the image in 16-bit."""
+    im = np.array(im, dtype=np.uint16)
+    cv2.imwrite(output_file, im)
 
 def full_segment_image(input_file, output_file, fiji_exe, fiji_script, min_num_pixels):
+    """Run the segmentation and write out the image."""
     numpy_im = segment_image(input_file, fiji_exe, fiji_script)
-    pil_im = color_objects(numpy_im, min_num_pixels)
-    pil_im.save(output_file)
+    colored_im = color_objects(numpy_im, min_num_pixels=min_num_pixels)
+    save_image(colored_im, output_file)
+    saved_im = cv2.imread(output_file, -1)
+    logger.info('Max value of object in saved output: {}'.format(
+                                            np.max(saved_im)))
 
 def main(args):
     "Main logic of the script."
-    numpy_im = segment_image(args.input_file, args.fiji_exe, args.fiji_script)
-    pil_im = color_objects(numpy_im, min_num_pixels=args.min_num_pixels)
-    pil_im.save(args.output_file)
+    full_segment_image(args.input_file,
+                       args.output_file,
+                       args.fiji_exe,
+                       args.fiji_script,
+                       args.min_num_pixels)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
