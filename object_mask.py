@@ -17,8 +17,8 @@ import skimage.filter
 import skimage.morphology
 import time
 
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
+logger = logging.getLogger('__main__.{}'.format(__name__))
+#logger.addHandler(logging.StreamHandler())
 #logger.setLevel(logging.DEBUG)
 
 def imshow(image):

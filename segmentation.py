@@ -4,10 +4,17 @@ import os
 import os.path
 import argparse
 import tempfile
+import subprocess
 
 from PIL import Image
 import numpy as np
 from scipy.ndimage import measurements
+
+import logging
+
+logger = logging.getLogger('__main__.{}'.format(__name__))
+#logger.addHandler(logging.StreamHandler())
+#logger.setLevel(logging.INFO)
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -18,12 +25,14 @@ def segment_image(input_file, fiji_exe, fiji_script):
 
     with tempfile.NamedTemporaryFile(suffix='.tiff', delete=False) as tmp_fh:
         output_file = tmp_fh.name
+
     cmd = '{} --headless -macro {} {}:{}'.format( fiji_exe, fiji_script,
                                                   input_file, output_file)
-
-    print(cmd)
-    os.system(cmd)
-    print('Back in Python...')
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    out, err = proc.communicate()
+    logger.info(out)
+    if err:
+        logger.warning(err)
 
     numpy_im = np.array(Image.open(output_file).convert('L'))
     os.unlink(output_file)
@@ -33,7 +42,7 @@ def color_objects(numpy_im, min_num_pixels):
     """Return a segmented PIL image with each object colored differently."""
     numpy_im = 1*(numpy_im<128)  # make sure the image is binary
     labels, num_objects = measurements.label(numpy_im)
-    print 'Number of objects: {}'.format(num_objects)
+    logger.info('Number of objects: {}'.format(num_objects))
 
     # Filter out objects that do not have enough pixels.
     num_objects_passing_size_filter = 0
@@ -45,8 +54,8 @@ def color_objects(numpy_im, min_num_pixels):
             labels = labels * np.uint8( labels!=i+1 )
         else:
             num_objects_passing_size_filter += 1
-    print 'Number of objects after size filter: {}'.format(
-                                num_objects_passing_size_filter)
+    logger.info('Number of objects after size filter: {}'.format(
+                                num_objects_passing_size_filter))
             
     pil_im = Image.fromarray(np.uint8(labels))
     return pil_im

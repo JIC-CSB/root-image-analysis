@@ -1,11 +1,13 @@
 
 import os
 import sys
+import logging
 
 import numpy as np
 
 from skimage.io import use_plugin, imread, imsave
 
+logger = logging.getLogger('__main__.{}'.format(__name__))
 
 def apply_mask(input_file, mask_file, output_file):
     # TODO - shape mismatches
@@ -13,8 +15,8 @@ def apply_mask(input_file, mask_file, output_file):
     input_image = imread(input_file)
     mask_image = imread(mask_file)
 
-    print input_image.shape
-    print mask_image.shape
+    logger.info('Input image shape: {}'.format(input_image.shape))
+    logger.info('Mask image shape: {}'.format(mask_image.shape))
 
     xdim, ydim, _ = input_image.shape
 
