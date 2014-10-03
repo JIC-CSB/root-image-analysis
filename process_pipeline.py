@@ -34,15 +34,14 @@ class RootMask(ManyToManyNode):
         for i, in_fname in enumerate(self.input_files):
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
-            if not os.path.isfile(out_fname):
-                logger.info('Processing input.')
-                generate_object_mask(in_fname,
-                                     out_fname,
-                                     self.settings.min_size,
-                                     self.settings.dilate)
-                logger.info('Done! Ouput file: {}.'.format(out_fname))
-            else:
+            if out_fname.exists and out_fname.is_more_recent(in_fname):
                 logger.info('Output file {} exists; skipping.'.format(out_fname))
+                continue
+            logger.info('Processing input.')
+            generate_object_mask(in_fname, out_fname,
+                                 self.settings.min_size,
+                                 self.settings.dilate)
+            logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class ApplyMask(ManyToManyNode):
     """Apply the root mask to the cell wall image."""
@@ -50,12 +49,14 @@ class ApplyMask(ManyToManyNode):
         for cell_wall_fname, mask_fname in self.input_files:
             out_fname = self.get_output_file(cell_wall_fname)
             log_msg(self, (cell_wall_fname, mask_fname))
-            if not os.path.isfile(out_fname):
-                logger.info('Processing input.')
-                apply_mask(cell_wall_fname, mask_fname, out_fname)
-                logger.info('Done! Ouput file: {}.'.format(out_fname))
-            else:
+            if out_fname.exists \
+            and out_fname.is_more_recent(cell_wall_fname) \
+            and out_fname.is_more_recent(mask_fname):
                 logger.info('Output file {} exists; skipping.'.format(out_fname))
+                continue
+            logger.info('Processing input.')
+            apply_mask(cell_wall_fname, mask_fname, out_fname)
+            logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class Segmentation(ManyToManyNode):
     """Segment the masked cell wall image."""
@@ -68,15 +69,15 @@ class Segmentation(ManyToManyNode):
         for in_fname in self.input_files:
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
-            if not os.path.isfile(out_fname):
-                logger.info('Processing input.')
-                full_segment_image(in_fname, out_fname,
-                                   self.settings.fiji_exe,
-                                   self.settings.fiji_script,
-                                   self.settings.min_num_pixels)
-                logger.info('Done! Ouput file: {}.'.format(out_fname))
-            else:
+            if out_fname.exists and out_fname.is_more_recent(in_fname):
                 logger.info('Output file {} exists; skipping.'.format(out_fname))
+                continue
+            logger.info('Processing input.')
+            full_segment_image(in_fname, out_fname,
+                               self.settings.fiji_exe,
+                               self.settings.fiji_script,
+                               self.settings.min_num_pixels)
+            logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class Measurement(ManyToOneNode):
     """Measure the mean intensities of the segmented cells."""
@@ -85,12 +86,14 @@ class Measurement(ManyToOneNode):
         venus_dir = self.input_obj[1]
         out_fname = self.output_file
         log_msg(self, (segmentation_dir, venus_dir))
-        if not os.path.isfile(out_fname):
-            logger.info('Processing input.')
-            generate_reconstruction(segmentation_dir, venus_dir, out_fname)
-            logger.info('Done! Ouput file: {}.'.format(out_fname))
-        else:
+        if out_fname.exists \
+        and out_fname.is_more_recent(self.input_obj[0].output_files[0]) \
+        and out_fname.is_more_recent(self.input_obj[0].output_files[0]):
             logger.info('Output file {} exists; skipping.'.format(out_fname))
+            return
+        logger.info('Processing input.')
+        generate_reconstruction(segmentation_dir, venus_dir, out_fname)
+        logger.info('Done! Ouput file: {}.'.format(out_fname))
     
 class Master(MetaNode):
     """End to end workflow."""
@@ -144,9 +147,9 @@ def main():
 
     args = parser.parse_args()
 
-    process_many_treatments(args.root_dir, args.out_dir)
+#   process_many_treatments(args.root_dir, args.out_dir)
 #   process_many_series(args.root_dir, args.out_dir)
-#   process_pipeline(args.root_dir, args.out_dir)
+    process_pipeline(args.root_dir, args.out_dir)
 
 if __name__ == "__main__":
     main()
