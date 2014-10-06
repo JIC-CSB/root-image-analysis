@@ -1,7 +1,13 @@
 import os.path
 import argparse
 
-from workflow.node import MetaNode, ManyToManyNode, ManyToOneNode, BaseSettings
+from workflow.node import (
+    MetaNode,
+    ManyToManyNode,
+    ManyToOneNode,
+    BaseSettings,
+    setup_logger,
+)
 from object_mask import generate_object_mask
 from apply_mask import apply_mask
 from segmentation import full_segment_image
@@ -9,13 +15,12 @@ from generate_reconstruction import generate_reconstruction
 
 import logging
 
-logger = logging.getLogger(__name__)
+node_logger = logging.getLogger('workflow.node')
+node_logger.setLevel(logging.INFO)
 
-console_handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-logger.setLevel(logging.INFO)
+script_logger = setup_logger(__name__)
+script_logger.setLevel(logging.INFO)
+
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,7 +28,7 @@ def log_msg(self, in_name):
     """Print a log message."""
     msg = '{} about to process input {}.'.format(self.__class__.__name__,
                                                  in_name)
-    logger.info(msg)
+    script_logger.info(msg)
 
 class RootMask(ManyToManyNode):
     """Generates a mask of the root from the cell wall image."""
@@ -35,13 +40,13 @@ class RootMask(ManyToManyNode):
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
             if out_fname.exists and out_fname.is_more_recent(in_fname):
-                logger.info('Output file {} exists; skipping.'.format(out_fname))
+                script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
-            logger.info('Processing input.')
+            script_logger.info('Processing input.')
             generate_object_mask(in_fname, out_fname,
                                  self.settings.min_size,
                                  self.settings.dilate)
-            logger.info('Done! Ouput file: {}.'.format(out_fname))
+            script_logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class ApplyMask(ManyToManyNode):
     """Apply the root mask to the cell wall image."""
@@ -52,11 +57,11 @@ class ApplyMask(ManyToManyNode):
             if out_fname.exists \
             and out_fname.is_more_recent(cell_wall_fname) \
             and out_fname.is_more_recent(mask_fname):
-                logger.info('Output file {} exists; skipping.'.format(out_fname))
+                script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
-            logger.info('Processing input.')
+            script_logger.info('Processing input.')
             apply_mask(cell_wall_fname, mask_fname, out_fname)
-            logger.info('Done! Ouput file: {}.'.format(out_fname))
+            script_logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class Segmentation(ManyToManyNode):
     """Segment the masked cell wall image."""
@@ -70,14 +75,14 @@ class Segmentation(ManyToManyNode):
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
             if out_fname.exists and out_fname.is_more_recent(in_fname):
-                logger.info('Output file {} exists; skipping.'.format(out_fname))
+                script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
-            logger.info('Processing input.')
+            script_logger.info('Processing input.')
             full_segment_image(in_fname, out_fname,
                                self.settings.fiji_exe,
                                self.settings.fiji_script,
                                self.settings.min_num_pixels)
-            logger.info('Done! Ouput file: {}.'.format(out_fname))
+            script_logger.info('Done! Ouput file: {}.'.format(out_fname))
 
 class Measurement(ManyToOneNode):
     """Measure the mean intensities of the segmented cells."""
@@ -89,11 +94,11 @@ class Measurement(ManyToOneNode):
         if out_fname.exists \
         and out_fname.is_more_recent(self.input_obj[0].output_files[0]) \
         and out_fname.is_more_recent(self.input_obj[0].output_files[0]):
-            logger.info('Output file {} exists; skipping.'.format(out_fname))
+            script_logger.info('Output file {} exists; skipping.'.format(out_fname))
             return
-        logger.info('Processing input.')
+        script_logger.info('Processing input.')
         generate_reconstruction(segmentation_dir, venus_dir, out_fname)
-        logger.info('Done! Ouput file: {}.'.format(out_fname))
+        script_logger.info('Done! Ouput file: {}.'.format(out_fname))
     
 class Master(MetaNode):
     """End to end workflow."""
@@ -126,7 +131,7 @@ def process_many_series(root_dir, out_dir):
         new_out_dir = os.path.join(out_dir, sd)
         if not os.path.isdir(new_out_dir):
             os.mkdir(new_out_dir)
-        logger.info('Processing series in: {}'.format(new_out_dir))
+        script_logger.info('Processing series in: {}'.format(new_out_dir))
         process_pipeline(new_root_dir, new_out_dir)
 
 def process_many_treatments(root_dir, out_dir):
@@ -137,7 +142,7 @@ def process_many_treatments(root_dir, out_dir):
         new_out_dir = os.path.join(out_dir, td)
         if not os.path.isdir(new_out_dir):
             os.mkdir(new_out_dir)
-        logger.info('Processing treatment in: {}'.format(new_out_dir))
+        script_logger.info('Processing treatment in: {}'.format(new_out_dir))
         process_many_series(new_root_dir, new_out_dir)
 
 def main():
