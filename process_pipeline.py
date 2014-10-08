@@ -1,8 +1,7 @@
 import os.path
 import argparse
 
-from workflow.node import (
-    MetaNode,
+from workflow import (
     ManyToManyNode,
     ManyToOneNode,
     BaseSettings,
@@ -15,7 +14,7 @@ from generate_reconstruction import generate_reconstruction
 
 import logging
 
-node_logger = logging.getLogger('workflow.node')
+node_logger = logging.getLogger('workflow')
 node_logger.setLevel(logging.INFO)
 
 script_logger = setup_logger(__name__)
@@ -39,7 +38,7 @@ class RootMask(ManyToManyNode):
         for i, in_fname in enumerate(self.input_files):
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
-            if out_fname.exists and out_fname.is_more_recent(in_fname):
+            if out_fname.exists and out_fname.is_more_recent_than(in_fname):
                 script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
             script_logger.info('Processing input.')
@@ -55,8 +54,8 @@ class ApplyMask(ManyToManyNode):
             out_fname = self.get_output_file(cell_wall_fname)
             log_msg(self, (cell_wall_fname, mask_fname))
             if out_fname.exists \
-            and out_fname.is_more_recent(cell_wall_fname) \
-            and out_fname.is_more_recent(mask_fname):
+            and out_fname.is_more_recent_than(cell_wall_fname) \
+            and out_fname.is_more_recent_than(mask_fname):
                 script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
             script_logger.info('Processing input.')
@@ -74,7 +73,7 @@ class Segmentation(ManyToManyNode):
         for in_fname in self.input_files:
             out_fname = self.get_output_file(in_fname)
             log_msg(self, in_fname)
-            if out_fname.exists and out_fname.is_more_recent(in_fname):
+            if out_fname.exists and out_fname.is_more_recent_than(in_fname):
                 script_logger.info('Output file {} exists; skipping.'.format(out_fname))
                 continue
             script_logger.info('Processing input.')
@@ -92,34 +91,36 @@ class Measurement(ManyToOneNode):
         out_fname = self.output_file
         log_msg(self, (segmentation_dir, venus_dir))
         if out_fname.exists \
-        and out_fname.is_more_recent(self.input_obj[0].output_files[0]) \
-        and out_fname.is_more_recent(self.input_obj[0].output_files[0]):
+        and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]) \
+        and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]):
             script_logger.info('Output file {} exists; skipping.'.format(out_fname))
             return
         script_logger.info('Processing input.')
         generate_reconstruction(segmentation_dir, venus_dir, out_fname)
         script_logger.info('Done! Ouput file: {}.'.format(out_fname))
     
-class Master(MetaNode):
+class Master(ManyToOneNode):
     """End to end workflow."""
+
+    def configure(self):
+        cell_wall_dir = self.input_obj[0]
+        venus_dir = self.input_obj[1]
+
+        root_mask_node = self.add_node(RootMask(cell_wall_dir))
+        apply_mask_node = self.add_node(ApplyMask(
+                                       input_obj=(cell_wall_dir, root_mask_node)))
+        segmentation_node = self.add_node(Segmentation(apply_mask_node))
+        measurement_node = self.add_node(Measurement(
+                                       input_obj=(segmentation_node, venus_dir),
+                                       output_obj=self.output_obj))
 
 def process_pipeline(root_dir, out_dir):
     cell_wall_dir = os.path.join(root_dir, 'cellwall')
     venus_dir = os.path.join(root_dir, 'venus')
-    results_fname = os.path.join(out_dir, 'results.csv')
+    output_file = os.path.join(out_dir, 'results.csv')
 
-    root_mask_node = RootMask(input_obj=cell_wall_dir)
-    apply_mask_node = ApplyMask(input_obj=(cell_wall_dir, root_mask_node))
-    segmentation_node = Segmentation(input_obj=apply_mask_node)
-    measurement_node = Measurement(input_obj=(segmentation_node, venus_dir),
-                                   output_obj=results_fname)
-
-    master_node = Master()
-    master_node.add_node(root_mask_node)
-    master_node.add_node(apply_mask_node)
-    master_node.add_node(segmentation_node)
-    master_node.add_node(measurement_node)
-
+    master_node = Master(input_obj=(cell_wall_dir, venus_dir),
+                         output_obj=output_file)
     master_node.output_directory = out_dir
     master_node.run()
 
