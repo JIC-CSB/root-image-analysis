@@ -2,6 +2,7 @@ import os.path
 import argparse
 
 from workflow import (
+    run,
     ManyToManyNode,
     ManyToOneNode,
     BaseSettings,
@@ -34,18 +35,11 @@ class RootMask(ManyToManyNode):
     class Settings(BaseSettings):
         min_size = 1000
         dilate = 6
-    def process(self):
-        for i, in_fname in enumerate(self.input_files):
-            out_fname = self.get_output_file(in_fname)
-            log_msg(self, in_fname)
-            if out_fname.exists and out_fname.is_more_recent_than(in_fname):
-                script_logger.info('Output file {} exists; skipping.'.format(out_fname))
-                continue
-            script_logger.info('Processing input.')
-            generate_object_mask(in_fname, out_fname,
-                                 self.settings.min_size,
-                                 self.settings.dilate)
-            script_logger.info('Done! Ouput file: {}.'.format(out_fname))
+    
+    def execute(self, task_input):
+        generate_object_mask(task_input.input_file, task_input.output_file,
+                             task_input.settings.min_size,
+                             task_input.settings.dilate)
 
 class ApplyMask(ManyToManyNode):
     """Apply the root mask to the cell wall image."""
@@ -69,20 +63,13 @@ class Segmentation(ManyToManyNode):
         fiji_script = os.path.join(HERE, 'watershed.ijm')
         min_num_pixels = 200
 
-    def process(self):
-        for in_fname in self.input_files:
-            out_fname = self.get_output_file(in_fname)
-            log_msg(self, in_fname)
-            if out_fname.exists and out_fname.is_more_recent_than(in_fname):
-                script_logger.info('Output file {} exists; skipping.'.format(out_fname))
-                continue
-            script_logger.info('Processing input.')
-            full_segment_image(in_fname, out_fname,
-                               self.settings.fiji_exe,
-                               self.settings.fiji_script,
-                               self.settings.min_num_pixels)
-            script_logger.info('Done! Ouput file: {}.'.format(out_fname))
-
+    def execute(self, task_input):
+        full_segment_image(task_input.input_file,
+                           task_input.output_file,
+                           task_input.settings.fiji_exe,
+                           task_input.settings.fiji_script,
+                           task_input.settings.min_num_pixels)
+        
 class Measurement(ManyToOneNode):
     """Measure the mean intensities of the segmented cells."""
     def process(self):
@@ -91,7 +78,6 @@ class Measurement(ManyToOneNode):
         out_fname = self.output_file
         log_msg(self, (segmentation_dir, venus_dir))
         if out_fname.exists \
-        and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]) \
         and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]):
             script_logger.info('Output file {} exists; skipping.'.format(out_fname))
             return
@@ -101,7 +87,6 @@ class Measurement(ManyToOneNode):
     
 class Master(ManyToOneNode):
     """End to end workflow."""
-
     def configure(self):
         cell_wall_dir = self.input_obj[0]
         venus_dir = self.input_obj[1]
@@ -114,7 +99,7 @@ class Master(ManyToOneNode):
                                        input_obj=(segmentation_node, venus_dir),
                                        output_obj=self.output_obj))
 
-def process_pipeline(root_dir, out_dir):
+def process_pipeline(root_dir, out_dir, mapper):
     cell_wall_dir = os.path.join(root_dir, 'cellwall')
     venus_dir = os.path.join(root_dir, 'venus')
     output_file = os.path.join(out_dir, 'results.csv')
@@ -122,9 +107,9 @@ def process_pipeline(root_dir, out_dir):
     master_node = Master(input_obj=(cell_wall_dir, venus_dir),
                          output_obj=output_file)
     master_node.output_directory = out_dir
-    master_node.run()
+    run(master_node, mapper)
 
-def process_many_series(root_dir, out_dir):
+def process_many_series(root_dir, out_dir, mapper):
     series_dirs = [d for d in os.listdir(root_dir) if d.startswith('S')]
 
     for sd in series_dirs:
@@ -133,9 +118,9 @@ def process_many_series(root_dir, out_dir):
         if not os.path.isdir(new_out_dir):
             os.mkdir(new_out_dir)
         script_logger.info('Processing series in: {}'.format(new_out_dir))
-        process_pipeline(new_root_dir, new_out_dir)
+        process_pipeline(new_root_dir, new_out_dir, mapper)
 
-def process_many_treatments(root_dir, out_dir):
+def process_many_treatments(root_dir, out_dir, mapper):
     treatment_dirs = os.listdir(root_dir)
 
     for td in treatment_dirs:
@@ -144,7 +129,7 @@ def process_many_treatments(root_dir, out_dir):
         if not os.path.isdir(new_out_dir):
             os.mkdir(new_out_dir)
         script_logger.info('Processing treatment in: {}'.format(new_out_dir))
-        process_many_series(new_root_dir, new_out_dir)
+        process_many_series(new_root_dir, new_out_dir, mapper)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -153,9 +138,14 @@ def main():
 
     args = parser.parse_args()
 
-#   process_many_treatments(args.root_dir, args.out_dir)
-#   process_many_series(args.root_dir, args.out_dir)
-    process_pipeline(args.root_dir, args.out_dir)
+    from multiprocessing import Pool
+    num_workers = 4
+    pool = Pool(num_workers)
+
+#   process_many_treatments(args.root_dir, args.out_dir, pool.map)
+    process_many_series(args.root_dir, args.out_dir, pool.map)
+#   process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
+
 
 if __name__ == "__main__":
     main()
