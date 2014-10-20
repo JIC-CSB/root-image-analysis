@@ -10,6 +10,8 @@ from skimage.io import use_plugin, imread, imsave
 logger = logging.getLogger('__main__.{}'.format(__name__))
 
 def apply_mask(input_file, mask_file, output_file):
+    use_plugin('pil')
+
     # TODO - shape mismatches
 
     input_image = imread(input_file)
@@ -35,7 +37,6 @@ def apply_mask(input_file, mask_file, output_file):
     
 
 def main():
-    use_plugin('freeimage')
 
     input_file = sys.argv[1]
     mask_file = sys.argv[2]
