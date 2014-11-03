@@ -1,21 +1,16 @@
-"""Generate partial 3D reconstruction from series of 2D slices"""
+"""Generate partial 3D reconstruction masks from series of 2D slices"""
 
-
-import re
-import os
-import sys
 import random
 import argparse
-from pprint import pprint
 
 import numpy as np
-from skimage.io import use_plugin, imread, imsave
+from skimage.io import use_plugin, imsave
 import matplotlib.pyplot as plt
 
-from coords2d import Coords2D
 from reconstructor import Reconstruction, load_segmentation_maps
 
 def shades_of_jop():
+    """Return a pretty colour."""
     c1 = random.randint(127, 255) 
     c2 = random.randint(0, 127) 
     c3 = random.randint(0, 255) 
@@ -24,6 +19,7 @@ def shades_of_jop():
 
 SHADES_OF_JOP_USED = set()
 def shades_of_jop_unique():
+    """Return a unique pretty colour."""
     jop = shades_of_jop()
     if jop in SHADES_OF_JOP_USED:
         jop = shades_of_jop_unique()
@@ -31,28 +27,8 @@ def shades_of_jop_unique():
         SHADES_OF_JOP_USED.add(jop)
     return jop
 
-def sorted_nicely( l ):
-    """ Sort the given iterable in the way that humans expect."""
-    convert = lambda text: int(text) if text.isdigit() else text
-    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
-    return sorted(l, key = alphanum_key)
-
-def generate_cell_collections(images):
-
-    return [cell_dict_from_image_array(im) for im in images]
-
-def load_intensity_data(intensity_dir):
-    
-    image_files = os.listdir(intensity_dir)
-
-    image_files = sorted_nicely(image_files)
-
-    idata = [imread(os.path.join(intensity_dir, im_file))
-             for im_file in image_files]
-
-    return idata
-
-def plot_reconstruction(seg_dir, start_z):
+def generate_reconstruction_mask(seg_dir, start_z):
+    """Generate reconstruction mask."""
     use_plugin('freeimage')
 
     smaps = load_segmentation_maps(seg_dir)
@@ -80,13 +56,12 @@ def plot_reconstruction(seg_dir, start_z):
         
 
 def main():
-    
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('seg_dir', help="Path to directory containing segmented images")
 
     args = parser.parse_args()
 
-    recons = plot_reconstruction(args.seg_dir, 0)
+    recons = generate_reconstruction_mask(args.seg_dir, 0)
 
     
 
