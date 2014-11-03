@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 from coords2d import Coords2D
 from reconstructor import Reconstruction, load_segmentation_maps
 
+import logging
+logger = logging.getLogger('__main__.{}'.format(__name__))
+
 def sorted_nicely( l ):
     """ Sort the given iterable in the way that humans expect."""
     convert = lambda text: int(text) if text.isdigit() else text
@@ -54,7 +57,13 @@ def heatmap_stuff():
 
     imsave("myr.tif", da)
 
-def reconstruct_and_measure(seg_dir, measure_dir, results_file, start_z=0):
+def reconstruct_and_measure(seg_dir, measure_dir,
+                            out_dir, results_file,
+                            start_z, end_z):
+    logger.info('Segmentation dir: {}'.format(seg_dir))
+    logger.info('Measurement dir: {}'.format(measure_dir))
+    logger.info('Output dir: {}'.format(out_dir))
+    logger.info('Results file: {}'.format(results_file))
     use_plugin('freeimage')
 
     smaps = load_segmentation_maps(seg_dir)
@@ -62,15 +71,18 @@ def reconstruct_and_measure(seg_dir, measure_dir, results_file, start_z=0):
 
     xdim, ydim = idata[0].shape
 
+    if start_z is None:
+        start_z = 0
+    if end_z is None:
+        end_z = len(smaps)-1  # Minus 1 is intentional; need to be able to extend one more z-stack
+    logger.info('Start z: {:d}'.format(start_z))
+    logger.info('End z: {:d}'.format(end_z))
+
     r = Reconstruction(smaps, start=start_z) 
+    logger.debug('Reconstruction instance: {}'.format(r))
 
-    for z in range(start_z, len(smaps)-1):
-    #for z in range(start_z, 12):
+    for z in range(start_z, end_z):
         r.extend(z)
-
-    # r = Reconstruction(smaps, start=6) 
-    # for z in range(6, 9):
-    #     r.extend(z)
 
     rcells = r.cells_larger_then(3)
 
@@ -98,13 +110,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('seg_dir', help="Path to directory containing segmented images")
     parser.add_argument('measure_dir', help="Path to directory containing intensity images")
+    parser.add_argument('out_dir', help="Path to output directory")
     parser.add_argument('results_file', help="Filename to which results should be output")
+    parser.add_argument('--z_start', help="First z-stack",
+                        default=None, type=int)
+    parser.add_argument('--z_end', help="Last z-stack",
+                        default=None, type=int)
 
     args = parser.parse_args()
 
-    recons = reconstruct_and_measure(args.seg_dir, args.measure_dir, args.results_file, 0)
+    recons = reconstruct_and_measure(args.seg_dir, args.measure_dir,
+                                     args.out_dir, args.results_file,
+                                     args.z_start, args.z_end)
 
     
 
 if __name__ == "__main__":
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler())
     main()
