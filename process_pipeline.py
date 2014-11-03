@@ -11,7 +11,6 @@ from workflow import (
 from object_mask import generate_object_mask
 from apply_mask import apply_mask
 from segmentation import full_segment_image
-from generate_reconstruction import generate_reconstruction
 from reconstruct_and_measure import reconstruct_and_measure
 
 import logging
@@ -72,21 +71,6 @@ class Segmentation(ManyToManyNode):
                            task_input.settings.fiji_script,
                            task_input.settings.min_num_pixels)
         
-class Measurement(ManyToOneNode):
-    """Measure the mean intensities of the segmented cells."""
-    def process(self):
-        segmentation_dir = self.input_obj[0].output_directory
-        venus_dir = self.input_obj[1]
-        out_fname = self.output_file
-        log_msg(self, (segmentation_dir, venus_dir))
-        if out_fname.exists \
-        and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]):
-            script_logger.info('Output file {} exists; skipping.'.format(out_fname))
-            return
-        script_logger.info('Processing input.')
-        generate_reconstruction(segmentation_dir, venus_dir, out_fname)
-        script_logger.info('Done! Ouput file: {}.'.format(out_fname))
-    
 class NewMeasurement(ManyToOneNode):
     """Measure the mean, quartile and best intensities of the segmented cells."""
     class Settings(BaseSettings):
@@ -117,21 +101,17 @@ class Master(ManyToOneNode):
         apply_mask_node = self.add_node(ApplyMask(
                                        input_obj=(cell_wall_dir, root_mask_node)))
         segmentation_node = self.add_node(Segmentation(apply_mask_node))
-        measurement_node = self.add_node(Measurement(
-                                       input_obj=(segmentation_node, venus_dir),
-                                       output_obj=self.output_obj[0]))
         new_measurement_node = self.add_node(NewMeasurement(
                                        input_obj=(segmentation_node, venus_dir),
-                                       output_obj=self.output_obj[1]))
+                                       output_obj=self.output_obj))
 
 def process_pipeline(root_dir, out_dir, mapper):
     cell_wall_dir = os.path.join(root_dir, 'cellwall')
     venus_dir = os.path.join(root_dir, 'venus')
-    output_file = os.path.join(out_dir, 'results.csv')
     new_output_file = os.path.join(out_dir, 'new_results.csv')
 
     master_node = Master(input_obj=(cell_wall_dir, venus_dir),
-                         output_obj=(output_file, new_output_file))
+                         output_obj=new_output_file)
     master_node.output_directory = out_dir
     run(master_node, mapper)
 
@@ -169,9 +149,9 @@ def main():
     pool = Pool(num_workers)
 
     start = time()
-    process_many_treatments(args.root_dir, args.out_dir, map)
+#   process_many_treatments(args.root_dir, args.out_dir, map)
 #   process_many_series(args.root_dir, args.out_dir, pool.map)
-#   process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
+    process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
 
     elapsed = (time() - start) / 60
     script_logger.info('Time taken {:.3f} minutes, using {} cores.'.format(elapsed, num_workers))
