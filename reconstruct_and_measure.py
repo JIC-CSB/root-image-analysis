@@ -3,15 +3,12 @@
 
 import re
 import os
-import sys
 import argparse
-from pprint import pprint
 
 import numpy as np
 from skimage.io import use_plugin, imread, imsave
 import matplotlib.pyplot as plt
 
-from coords2d import Coords2D
 from reconstructor import Reconstruction, load_segmentation_maps
 
 import logging
@@ -23,10 +20,6 @@ def sorted_nicely( l ):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
     return sorted(l, key = alphanum_key)
 
-def generate_cell_collections(images):
-
-    return [cell_dict_from_image_array(im) for im in images]
-
 def load_intensity_data(intensity_dir):
     
     image_files = os.listdir(intensity_dir)
@@ -37,25 +30,6 @@ def load_intensity_data(intensity_dir):
              for im_file in image_files]
 
     return idata
-
-def heatmap_stuff():
-    da = np.zeros((xdim, ydim, 3), dtype=np.uint8)
-
-    ilist = []
-    imax = 4
-    imin = 0.9
-    for rcell in rcells:
-        if 7 in rcell.slice_dict:
-            intensity = rcell.measure_mean_intensity(idata)
-            ilist.append(intensity)
-            gval = 255 * (intensity - imin) / (imax - imin)
-            gval = min(255, gval)
-            da[rcell.slice_dict[7].coord_list] = [255-gval, gval, 0]
-
-    print max(ilist), min(ilist)
-
-
-    imsave("myr.tif", da)
 
 def reconstruct_and_measure(seg_dir, measure_dir,
                             out_dir, results_file,
