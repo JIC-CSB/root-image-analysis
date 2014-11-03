@@ -5,6 +5,7 @@ import re
 import os
 import argparse
 
+import random
 import numpy as np
 from skimage.io import use_plugin, imread, imsave
 import matplotlib.pyplot as plt
@@ -19,6 +20,41 @@ def sorted_nicely( l ):
     convert = lambda text: int(text) if text.isdigit() else text
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
     return sorted(l, key = alphanum_key)
+
+def shades_of_jop():
+    """Return a pretty colour."""
+    c1 = random.randint(127, 255) 
+    c2 = random.randint(0, 127) 
+    c3 = random.randint(0, 255) 
+
+    return tuple(random.sample([c1, c2, c3], 3))
+
+SHADES_OF_JOP_USED = set()
+def shades_of_jop_unique():
+    """Return a unique pretty colour."""
+    jop = shades_of_jop()
+    if jop in SHADES_OF_JOP_USED:
+        jop = shades_of_jop_unique()
+    else:
+        SHADES_OF_JOP_USED.add(jop)
+    return jop
+
+def generate_reconstruction_mask(out_dir, xdim, ydim, rcells, start_z, end_z):
+    """Generate reconstruction mask."""
+    use_plugin('freeimage')
+
+    das = {z: np.zeros((xdim, ydim, 3), dtype=np.uint8)
+           for z in range(start_z, end_z+1)}  # Plus one is intentional; end goes to z-1
+
+    for rcell in rcells:
+        c = shades_of_jop_unique()
+        for z, cellslice in rcell.slice_dict.items():
+            das[z][cellslice.coord_list] = c
+
+    for z, ia in das.items():
+        out_fn = os.path.join(out_dir, "da%d.tif" % z)
+        imsave(out_fn, ia)
+        
 
 def load_intensity_data(intensity_dir):
     
@@ -60,6 +96,8 @@ def reconstruct_and_measure(seg_dir, measure_dir,
 
     rcells = r.cells_larger_then(3)
 
+    generate_reconstruction_mask(out_dir, xdim, ydim, rcells, start_z, end_z)
+    
     with open(results_file, "w") as f:
         f.write('mean_intensity,quartile_intensity,best_intensity,best_z,x,y,z,volume,zext')
         for rcell in rcells:
