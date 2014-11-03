@@ -8,8 +8,6 @@ from coords2d import Coords2D
 
 import logging
 logger = logging.getLogger('__main__.{}'.format(__name__))
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
 
 def sorted_nicely( l ):
     """ Sort the given iterable in the way that humans expect."""
