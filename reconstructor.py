@@ -6,6 +6,11 @@ from skimage.io import use_plugin, imread
 
 from coords2d import Coords2D
 
+import logging
+logger = logging.getLogger('__main__.{}'.format(__name__))
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
+
 def sorted_nicely( l ):
     """ Sort the given iterable in the way that humans expect."""
     convert = lambda text: int(text) if text.isdigit() else text
@@ -16,6 +21,7 @@ class ReconstructedCell(object):
     """Pseudo 3D cell from contiguous z-stacks."""
 
     def __init__(self, slice_dict):
+        logger.debug('Initialising ReconstructedCell')
         self.slice_dict = slice_dict
 
     def add_slice(self, layer, cellslice):
@@ -86,6 +92,7 @@ class CellSlice(object):
     """Slice of a cell in the x, y plane."""
 
     def __init__(self, ID, coord_list):
+        logger.debug('Initialising CellSlice')
         self.ID = ID
         self.coord_list = coord_list
         self.pixel_area = len(coord_list[0])
@@ -112,13 +119,19 @@ class SegmentationMap(object):
     """Container for the pseudo 3D reconstructed cells."""
 
     def __init__(self, image_file):
+        logger.debug('Initialising SegmentationMap')
         use_plugin('freeimage')
         self.im_array = imread(image_file)
+        self.internal_cc = None
 
     @property
     def cells(self):
         """Return the dictionary of cell slices."""
-        return cell_dict_from_image_array(self.im_array)
+        if self.internal_cc is not None:
+            return self.internal_cc
+        else:
+            self.internal_cc = cell_dict_from_image_array(self.im_array)
+            return self.internal_cc
 
     def cell_at(self, position):
         """Return the cell at position (x, y)."""
@@ -145,11 +158,13 @@ class Reconstruction(object):
     """Pseudo 3D reconstruction."""
 
     def __init__(self, smaps, start=0):
+        logger.debug('Initialising Reconstruction.')
         self.smaps = smaps
         self.rcells = []
         self.lut = {}
         z = start
         for ID in smaps[z].all_ids:
+            logger.debug('Loop id: {}'.format(ID))
             rcell = ReconstructedCell({z: self.smaps[z].cells[ID]})
             self.rcells.append(rcell)
             self.lut[(z, ID)] = rcell
