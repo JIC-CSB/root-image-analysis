@@ -39,7 +39,14 @@ def shades_of_jop_unique():
         SHADES_OF_JOP_USED.add(jop)
     return jop
 
-def generate_reconstruction_mask(out_dir, xdim, ydim, rcells, start_z, end_z):
+def get_mask_output_fpaths(seg_dir, out_dir, start_z, end_z):
+    """Return list of reconstruction mask output file paths."""
+    fnames = os.listdir(seg_dir)
+    fnames = sorted_nicely(fnames)
+    fpaths = [os.path.join(out_dir, fn) for fn in fnames]
+    return fpaths[start_z:end_z+1]  # Plus one is intentional; end_z goes to z-1
+
+def generate_reconstruction_mask(out_fpaths, xdim, ydim, rcells, start_z, end_z):
     """Generate reconstruction mask."""
     use_plugin('freeimage')
 
@@ -51,9 +58,9 @@ def generate_reconstruction_mask(out_dir, xdim, ydim, rcells, start_z, end_z):
         for z, cellslice in rcell.slice_dict.items():
             das[z][cellslice.coord_list] = c
 
-    for z, ia in das.items():
-        out_fn = os.path.join(out_dir, "da%d.tif" % z)
-        imsave(out_fn, ia)
+    for out_fn, z in zip(out_fpaths, range(start_z, end_z+1)):
+#       out_fn = os.path.join(out_dir, "da%d.tif" % z)
+        imsave(out_fn, das[z])
         
 
 def load_intensity_data(intensity_dir):
@@ -96,7 +103,9 @@ def reconstruct_and_measure(seg_dir, measure_dir,
 
     rcells = r.cells_larger_then(3)
 
-    generate_reconstruction_mask(out_dir, xdim, ydim, rcells, start_z, end_z)
+    # Write the mask images
+    mask_fpaths = get_mask_output_fpaths(seg_dir, out_dir, start_z, end_z)
+    generate_reconstruction_mask(mask_fpaths, xdim, ydim, rcells, start_z, end_z)
     
     with open(results_file, "w") as f:
         f.write('mean_intensity,quartile_intensity,best_intensity,best_z,x,y,z,volume,zext')
