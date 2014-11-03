@@ -5,8 +5,6 @@ import numpy as np
 from skimage.io import use_plugin, imread
 
 from coords2d import Coords2D
-#import regionmap
-
 
 def sorted_nicely( l ):
     """ Sort the given iterable in the way that humans expect."""
@@ -116,21 +114,11 @@ class SegmentationMap(object):
     def __init__(self, image_file):
         use_plugin('freeimage')
         self.im_array = imread(image_file)
-        # self.im_array = np.transpose(self.im_array)
-        # cd = regionmap.load_image(image_file)
-        # self.internal_cc = {cid: CellSlice(cid, clist)
-        #                     for cid, clist in cd.items()}
-        self.internal_cc = None
 
     @property
     def cells(self):
         """Return the dictionary of cell slices."""
-        #return self.internal_cc
-        if self.internal_cc is not None:
-            return self.internal_cc
-        else:
-            self.internal_cc = cell_dict_from_image_array(self.im_array)
-            return self.internal_cc
+        return cell_dict_from_image_array(self.im_array)
 
     def cell_at(self, position):
         """Return the cell at position (x, y)."""
