@@ -12,6 +12,7 @@ from object_mask import generate_object_mask
 from apply_mask import apply_mask
 from segmentation import full_segment_image
 from reconstruct_and_measure import reconstruct_and_measure
+from segmentation_outline import generate_segmentation_outline
 
 import logging
 from time import time
@@ -74,7 +75,8 @@ class Segmentation(ManyToManyNode):
 class NewMeasurement(ManyToOneNode):
     """Measure the mean, quartile and best intensities of the segmented cells."""
     class Settings(BaseSettings):
-        start_z = 0
+        start_z = None
+        end_z = None
     def process(self):
         segmentation_dir = self.input_obj[0].output_directory
         venus_dir = self.input_obj[1]
@@ -87,10 +89,26 @@ class NewMeasurement(ManyToOneNode):
         script_logger.info('Processing input.')
         reconstruct_and_measure(segmentation_dir,
                                 venus_dir,
+                                self.output_directory,
                                 out_fname,
-                                self.settings.start_z)
+                                self.settings.start_z,
+                                self.settings.end_z)
         script_logger.info('Done! Ouput file: {}.'.format(out_fname))
     
+class ReconstrucitonOutline(ManyToManyNode):
+    """Generate segmentation outlines using the reconstructed cells."""
+    def get_tasks(self):
+        tasks = []
+        input_dir = self.input_obj.output_directory
+        for fname in os.listdir(input_dir):
+            input_fn = os.path.join(input_dir, fname)
+            output_fn = self.get_output_file(fname)
+            tasks.append((input_fn, output_fn))
+        return tasks
+
+    def execute(self, task_input):
+        generate_segmentation_outline(task_input[0], task_input[1])
+
 class Master(ManyToOneNode):
     """End to end workflow."""
     def configure(self):
@@ -104,6 +122,8 @@ class Master(ManyToOneNode):
         new_measurement_node = self.add_node(NewMeasurement(
                                        input_obj=(segmentation_node, venus_dir),
                                        output_obj=self.output_obj))
+        reconstruction_outline = self.add_node(ReconstrucitonOutline(
+                                               input_obj=new_measurement_node))
 
 def process_pipeline(root_dir, out_dir, mapper):
     cell_wall_dir = os.path.join(root_dir, 'cellwall')
