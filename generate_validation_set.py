@@ -85,7 +85,7 @@ class ValidationSet(object):
             rcell = self.reconstruction.find_cell(z, cell_id)
             if (rcell is not None
                 and rcell.z_extent > 2
-                and rcell.z_extent < 5
+                and rcell.z_extent < 7
                 and rcell not in self.reconstructed_cells):
                 print('rCell: {}'.format(rcell))
                 self.selected_points.append( (x, y, z) )
@@ -184,7 +184,8 @@ def select_random_root():
         return '{}_{}_{}'.format(e, t, s)
 
     e = random.choice(['SDB265', 'SDB281'])
-    t = random.choice(['2WT7', '4WT7', '6WT7', '8WT7', '10WT7'])
+#   t = random.choice(['2WT7', '4WT7', '6WT7', '8WT7', '10WT7'])
+    t = random.choice(['2WT7', '4WT7'])
     s = random.choice(['S0', 'S1', 'S2', 'S3', 'S4', 'S5'])
 
     return (
@@ -204,13 +205,11 @@ def get_validation_set_size(out_dir):
     return len(fnames)
     
 def generate_validation_set(out_dir, size):
-    print('type(size)', type(size))
-    print('size', size)
     print('out_dir', out_dir)
-    print(get_validation_set_size(out_dir))
     print(get_validation_set_size(out_dir) < size)
     while get_validation_set_size(out_dir) < size:
         s_dir, cw_dir, m_dir, out_prefix = select_random_root()
+        print('Done: {}'.format(get_validation_set_size(out_dir)))
         print(s_dir, cw_dir, m_dir, out_prefix)
         try:
             vs = ValidationSet(s_dir, cw_dir, m_dir, out_dir, out_prefix)
