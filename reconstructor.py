@@ -18,8 +18,9 @@ def sorted_nicely( l ):
 class ReconstructedCell(object):
     """Pseudo 3D cell from contiguous z-stacks."""
 
-    def __init__(self, slice_dict):
+    def __init__(self, ID, slice_dict):
         logger.debug('Initialising ReconstructedCell')
+        self.ID = ID
         self.slice_dict = slice_dict
 
     def add_slice(self, layer, cellslice):
@@ -68,7 +69,8 @@ class ReconstructedCell(object):
         return best_slice, best_z
         
     def __repr__(self):
-        return "<ReconstructedCell: %s>" % self.slice_dict.__repr__()
+        return "<ReconstructedCell: {:d}>".format(self.ID)
+#       return "<ReconstructedCell: %s>" % self.slice_dict.__repr__()
 
     def simple_string_rep(self):
         """Return a simple string representation of the reconstructed cell."""
@@ -121,6 +123,7 @@ class SegmentationMap(object):
         use_plugin('freeimage')
         self.im_array = imread(image_file)
         self.internal_cc = None
+        self.internal_coords = {}
 
     @property
     def cells(self):
@@ -130,6 +133,15 @@ class SegmentationMap(object):
         else:
             self.internal_cc = cell_dict_from_image_array(self.im_array)
             return self.internal_cc
+
+    def cell_id_at(self, position):
+        """Return the cell id at position (x, y)."""
+        x, y = position
+
+        ID = self.im_array[x, y]
+        if ID == 0:
+            return None
+        return ID
 
     def cell_at(self, position):
         """Return the cell at position (x, y)."""
@@ -150,7 +162,11 @@ class SegmentationMap(object):
 
     def coord_list(self, cID):
         """Return list of coordinates for cell (ID)."""
-        return np.where(self.im_array == cID)
+        try:
+            self.internal_coords[cID]
+        except KeyError:
+            self.internal_coords[cID] = np.where(self.im_array == cID)
+        return self.internal_coords[cID]
 
 class Reconstruction(object):
     """Pseudo 3D reconstruction."""
@@ -163,7 +179,8 @@ class Reconstruction(object):
         z = start
         for ID in smaps[z].all_ids:
             logger.debug('Loop id: {}'.format(ID))
-            rcell = ReconstructedCell({z: self.smaps[z].cells[ID]})
+            rcell_id = len(self.rcells)
+            rcell = ReconstructedCell(rcell_id, {z: self.smaps[z].cells[ID]})
             self.rcells.append(rcell)
             self.lut[(z, ID)] = rcell
 
@@ -177,7 +194,8 @@ class Reconstruction(object):
                 rcell = self.lut[(z, f)]
                 rcell.add_slice(z+1, self.smaps[z+1].cells[t])
             except KeyError:
-                rcell = ReconstructedCell({z+1: self.smaps[z+1].cells[t]})
+                rcell_id = len(self.rcells)
+                rcell = ReconstructedCell(rcell_id, {z+1: self.smaps[z+1].cells[t]})
                 self.rcells.append(rcell)
 
             self.lut[(z+1, t)] = rcell
@@ -186,6 +204,13 @@ class Reconstruction(object):
         """Return cells which have more than zext z-stacks."""
         return [rcell for rcell in self.rcells
                 if rcell.z_extent >= zext]
+
+    def find_cell(self, z, cid):
+        """Return cell if it exists."""
+        try:
+            return self.lut[(z, cid)]
+        except KeyError:
+            return None
 
     def save_to_file(self, filename):
         """Save the reconstructed cells to file using simple cell representation."""
