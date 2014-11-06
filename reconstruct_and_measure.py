@@ -11,6 +11,7 @@ from skimage.io import use_plugin, imread, imsave
 import matplotlib.pyplot as plt
 
 from reconstructor import Reconstruction, load_segmentation_maps
+from sum_segmentation_dir import sum_segmentation_dir
 
 import logging
 logger = logging.getLogger('__main__.{}'.format(__name__))
@@ -106,9 +107,12 @@ def reconstruct_and_measure(seg_dir, measure_dir,
     # Write the mask images
     mask_fpaths = get_mask_output_fpaths(seg_dir, out_dir, start_z, end_z)
     generate_reconstruction_mask(mask_fpaths, xdim, ydim, rcells, start_z, end_z)
+
+    # Calculate total area
+    sum_segmentation_area = sum_segmentation_dir(seg_dir)
     
     with open(results_file, "w") as f:
-        f.write('mean_intensity,quartile_intensity,best_intensity,best_z,x,y,z,volume,zext')
+        f.write('mean_intensity,quartile_intensity,best_intensity,best_z,x,y,z,volume,zext,sum_seg_area\n')
         for rcell in rcells:
             x, y, z = rcell.centroid
             mean_intensity = rcell.measure_mean_intensity(idata)
@@ -117,14 +121,15 @@ def reconstruct_and_measure(seg_dir, measure_dir,
             volume = rcell.pixel_area
             zext = rcell.z_extent
 
-            f.write("{},{},{},{},{},{},{},{},{}\n".format(
+            f.write("{},{},{},{},{},{},{},{},{},{}\n".format(
                 mean_intensity,
                 quartile_intensity,
                 best_intensity,
                 best_z,
                 x, y, z,
                 volume,
-                zext))
+                zext,
+                sum_segmentation_area))
 
 def main():
     

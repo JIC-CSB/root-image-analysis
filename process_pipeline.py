@@ -13,6 +13,7 @@ from apply_mask import apply_mask
 from segmentation import full_segment_image
 from remove_border_segmentations import remove_border_segmentations
 from reconstruct_and_measure import reconstruct_and_measure
+from sum_segmentation_dir import sum_segmentation_dir
 from segmentation_outline import generate_segmentation_outline
 
 import logging
@@ -79,7 +80,6 @@ class RemoveBorderSegmentations(ManyToManyNode):
     def execute(self, task_input):
         remove_border_segmentations(task_input.input_file, task_input.output_file)
 
-
 class NewMeasurement(ManyToOneNode):
     """Measure the mean, quartile and best intensities of the segmented cells."""
     class Settings(BaseSettings):
@@ -102,7 +102,7 @@ class NewMeasurement(ManyToOneNode):
                                 self.settings.start_z,
                                 self.settings.end_z)
         script_logger.info('Done! Ouput file: {}.'.format(out_fname))
-    
+
 class ReconstrucitonOutline(ManyToManyNode):
     """Generate segmentation outlines using the reconstructed cells."""
     def get_tasks(self):
@@ -122,6 +122,7 @@ class Master(ManyToOneNode):
     def configure(self):
         cell_wall_dir = self.input_obj[0]
         venus_dir = self.input_obj[1]
+        results_csv_fn = self.output_obj
 
         root_mask_node = self.add_node(RootMask(cell_wall_dir))
         apply_mask_node = self.add_node(ApplyMask(
@@ -130,17 +131,17 @@ class Master(ManyToOneNode):
         remove_border_segmentation_node = self.add_node(RemoveBorderSegmentations(segmentation_node))
         new_measurement_node = self.add_node(NewMeasurement(
                                        input_obj=(remove_border_segmentation_node, venus_dir),
-                                       output_obj=self.output_obj))
+                                       output_obj=results_csv_fn))
         reconstruction_outline = self.add_node(ReconstrucitonOutline(
                                                input_obj=new_measurement_node))
 
 def process_pipeline(root_dir, out_dir, mapper):
     cell_wall_dir = os.path.join(root_dir, 'cellwall')
     venus_dir = os.path.join(root_dir, 'venus')
-    new_output_file = os.path.join(out_dir, 'new_results.csv')
+    output_file = os.path.join(out_dir, 'final_results.csv')
 
     master_node = Master(input_obj=(cell_wall_dir, venus_dir),
-                         output_obj=new_output_file)
+                         output_obj=output_file)
     master_node.output_directory = out_dir
     run(master_node, mapper)
 
