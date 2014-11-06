@@ -208,13 +208,15 @@ def generate_validation_set(out_dir, size):
     print('out_dir', out_dir)
     print(get_validation_set_size(out_dir) < size)
     while get_validation_set_size(out_dir) < size:
+        identifier = get_validation_set_size(out_dir)
         s_dir, cw_dir, m_dir, out_prefix = select_random_root()
-        print('Done: {}'.format(get_validation_set_size(out_dir)))
+        print('Done: {}'.format(identifier))
+        out_prefix = '{:03d}_{}'.format(identifier, out_prefix)
         print(s_dir, cw_dir, m_dir, out_prefix)
         try:
             vs = ValidationSet(s_dir, cw_dir, m_dir, out_dir, out_prefix)
             vs.generate_validation_set()
-        except OSError:
+        except (OSError, IndexError):
             pass
 
 
