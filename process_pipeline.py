@@ -11,6 +11,7 @@ from workflow import (
 from object_mask import generate_object_mask
 from apply_mask import apply_mask
 from segmentation import full_segment_image
+from remove_border_segmentations import remove_border_segmentations
 from reconstruct_and_measure import reconstruct_and_measure
 from segmentation_outline import generate_segmentation_outline
 
@@ -72,6 +73,13 @@ class Segmentation(ManyToManyNode):
                            task_input.settings.fiji_script,
                            task_input.settings.min_num_pixels)
         
+
+class RemoveBorderSegmentations(ManyToManyNode):
+    """Remove segments that touch the image border."""
+    def execute(self, task_input):
+        remove_border_segmentations(task_input.input_file, task_input.output_file)
+
+
 class NewMeasurement(ManyToOneNode):
     """Measure the mean, quartile and best intensities of the segmented cells."""
     class Settings(BaseSettings):
@@ -119,8 +127,9 @@ class Master(ManyToOneNode):
         apply_mask_node = self.add_node(ApplyMask(
                                        input_obj=(cell_wall_dir, root_mask_node)))
         segmentation_node = self.add_node(Segmentation(apply_mask_node))
+        remove_border_segmentation_node = self.add_node(RemoveBorderSegmentations(segmentation_node))
         new_measurement_node = self.add_node(NewMeasurement(
-                                       input_obj=(segmentation_node, venus_dir),
+                                       input_obj=(remove_border_segmentation_node, venus_dir),
                                        output_obj=self.output_obj))
         reconstruction_outline = self.add_node(ReconstrucitonOutline(
                                                input_obj=new_measurement_node))
@@ -169,9 +178,9 @@ def main():
     pool = Pool(num_workers)
 
     start = time()
-#   process_many_treatments(args.root_dir, args.out_dir, map)
+    process_many_treatments(args.root_dir, args.out_dir, map)
 #   process_many_series(args.root_dir, args.out_dir, pool.map)
-    process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
+#   process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
 
     elapsed = (time() - start) / 60
     script_logger.info('Time taken {:.3f} minutes, using {} cores.'.format(elapsed, num_workers))
