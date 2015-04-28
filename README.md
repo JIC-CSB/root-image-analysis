@@ -15,3 +15,6 @@ The following python packages are needed to run the code:
 * matplotlib
 * PIL
 * openCV (with python binding) 
+* scikit-image
+* libtiff
+* freeimage
