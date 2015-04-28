@@ -18,3 +18,5 @@ The following python packages are needed to run the code:
 * scikit-image
 * libtiff
 * freeimage
+
+and you'll also need Fiji (the ImageJ implementation).
