@@ -63,7 +63,7 @@ class ApplyMask(ManyToManyNode):
 class Segmentation(ManyToManyNode):
     """Segment the masked cell wall image."""
     class Settings(BaseSettings):
-        fiji_exe = '/usr/users/a5/olssont/software/fiji/Fiji.app/ImageJ-linux64'  
+        fiji_exe = '/usr/users/a5/olssont/software/source/fiji/Fiji.app/ImageJ-linux64'  
         fiji_script = os.path.join(HERE, 'watershed.ijm')
         min_num_pixels = 200
 
