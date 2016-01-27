@@ -15,6 +15,7 @@ from remove_border_segmentations import remove_border_segmentations
 from reconstruct_and_measure import reconstruct_and_measure
 from sum_segmentation_dir import sum_segmentation_dir
 from segmentation_outline import generate_segmentation_outline
+from generate_heatmap import generate_heatmap
 
 import logging
 from time import time
@@ -117,6 +118,30 @@ class ReconstrucitonOutline(ManyToManyNode):
     def execute(self, task_input):
         generate_segmentation_outline(task_input[0], task_input[1])
 
+class Heatmap(ManyToOneNode):
+    """Generate segmentation outlines using the reconstructed cells."""
+    class Settings(BaseSettings):
+        start_z = None
+        end_z = None
+    def process(self):
+        segmentation_dir = self.input_obj[0].output_directory
+        venus_dir = self.input_obj[1]
+        out_fname = self.output_file
+        log_msg(self, (segmentation_dir, venus_dir))
+        if out_fname.exists \
+        and out_fname.is_more_recent_than(self.input_obj[0].output_files[0]):
+            script_logger.info('Output file {} exists; skipping.'.format(out_fname))
+            return
+        script_logger.info('Processing input.')
+        generate_heatmap(segmentation_dir,
+                         venus_dir,
+                         self.output_directory,
+                         out_fname,
+                         self.settings.start_z,
+                         self.settings.end_z)
+        script_logger.info('Done! Ouput file: {}.'.format(out_fname))
+
+
 class Master(ManyToOneNode):
     """End to end workflow."""
     def configure(self):
@@ -129,6 +154,9 @@ class Master(ManyToOneNode):
                                        input_obj=(cell_wall_dir, root_mask_node)))
         segmentation_node = self.add_node(Segmentation(apply_mask_node))
         remove_border_segmentation_node = self.add_node(RemoveBorderSegmentations(segmentation_node))
+        heatmap_node = self.add_node(Heatmap(
+                                       input_obj=(remove_border_segmentation_node, venus_dir),
+                                       output_obj="dummy.png"))
         new_measurement_node = self.add_node(NewMeasurement(
                                        input_obj=(remove_border_segmentation_node, venus_dir),
                                        output_obj=results_csv_fn))
@@ -179,9 +207,9 @@ def main():
     pool = Pool(num_workers)
 
     start = time()
-    process_many_treatments(args.root_dir, args.out_dir, map)
+#   process_many_treatments(args.root_dir, args.out_dir, map)
 #   process_many_series(args.root_dir, args.out_dir, pool.map)
-#   process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
+    process_pipeline(args.root_dir, args.out_dir, mapper=pool.map)
 
     elapsed = (time() - start) / 60
     script_logger.info('Time taken {:.3f} minutes, using {} cores.'.format(elapsed, num_workers))
