@@ -125,7 +125,6 @@ def main():
     parser.add_argument('seg_dir', help="Path to directory containing segmented images")
     parser.add_argument('measure_dir', help="Path to directory containing intensity images")
     parser.add_argument('out_dir', help="Path to output directory")
-    parser.add_argument('results_file', help="Filename to which results should be output")
     parser.add_argument('--z_start', help="First z-stack",
                         default=None, type=int)
     parser.add_argument('--z_end', help="Last z-stack",
