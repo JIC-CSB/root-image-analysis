@@ -103,7 +103,7 @@ def generate_heatmap(seg_dir, measure_dir, out_dir, start_z, end_z):
 
     output_filename = "heatmap.png"
     full_output_path = os.path.join(out_dir, output_filename)
-    heatmap_array = np.zeros((xdim, ydim), 3), dtype=np.uint8)
+    heatmap_array = np.zeros((xdim, ydim, 3), dtype=np.uint8)
 
     selected_z_plane = 7
     imax = 4
