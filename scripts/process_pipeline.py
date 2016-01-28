@@ -136,7 +136,7 @@ class Heatmap(ManyToOneNode):
         generate_heatmap(segmentation_dir,
                          venus_dir,
                          self.output_directory,
-                         out_fname,
+#                        out_fname,
                          self.settings.start_z,
                          self.settings.end_z)
         script_logger.info('Done! Ouput file: {}.'.format(out_fname))
