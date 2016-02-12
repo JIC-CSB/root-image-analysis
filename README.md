@@ -20,3 +20,17 @@ The following python packages are needed to run the code:
 * freeimage
 
 and you'll also need Fiji (the ImageJ implementation).
+
+## Installation notes
+
+```
+virtualenv env
+source env/bin/activate
+pip install numpy
+pip install scipy
+pip install "scikit-image<0.11"
+pip install libtiff
+cp /lib64/python2.7/site-packages/cv2.so env/lib64/python2.7/
+```
+
+Set path to ``fiji`` in ``root-image-analysis/scripts/process_pipeline.py``.
