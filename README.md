@@ -2,6 +2,14 @@
 
 This code implements a quantitative image analysis pipeline for the reconstruction of root cell volumes from confocal microscopy data. These reconstructed cell volumes can be used to measure fluorescence intensity in other channels in the confocal images.
 
+## Publication
+
+Local chromatin environment of a Polycomb target gene instructs its own epigenetic inheritance
+
+Scott Berry, Matthew Hartley, Tjelvar S G Olsson, Caroline Dean, Martin Howard
+
+[eLife 2015;4:e07205](http://dx.doi.org/10.7554/eLife.07205)
+
 ## Using the code
 
 If you're interested in using the code, we'd strongly suggest that you get in contact with us (we'd love to help!).
